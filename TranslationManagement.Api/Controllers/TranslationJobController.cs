@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Linq;
 using External.ThirdParty.Services;
@@ -8,6 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Polly.Retry;
 using TranslationManagement.Api.Controlers;
 
 namespace TranslationManagement.Api.Controllers
@@ -20,26 +22,31 @@ namespace TranslationManagement.Api.Controllers
         {
             public int Id { get; set; }
             public string CustomerName { get; set; }
-            public string Status { get; set; }
+            public JobStatus Status { get; set; }
             public string OriginalContent { get; set; }
             public string TranslatedContent { get; set; }
             public double Price { get; set; }
         }
 
-        static class JobStatuses
+        public enum JobStatus
         {
-            internal static readonly string New = "New";
-            internal static readonly string Inprogress = "InProgress";
-            internal static readonly string Completed = "Completed";
+            New,
+            Inprogress,
+            Completed,
         }
 
         private AppDbContext _context;
         private readonly ILogger<TranslatorManagementController> _logger;
+        private readonly INotificationService _notificationService;
+        private readonly RetryPolicy _retryPolicy;
 
-        public TranslationJobController(IServiceScopeFactory scopeFactory, ILogger<TranslatorManagementController> logger)
+        public TranslationJobController(IServiceScopeFactory scopeFactory, ILogger<TranslatorManagementController> logger, INotificationService notificationService,
+        RetryPolicy retryPolicy)
         {
             _context = scopeFactory.CreateScope().ServiceProvider.GetService<AppDbContext>();
             _logger = logger;
+            _notificationService = notificationService;
+            _retryPolicy = retryPolicy;
         }
 
         [HttpGet]
@@ -55,9 +62,9 @@ namespace TranslationManagement.Api.Controllers
         }
 
         [HttpPost]
-        public bool CreateJob(TranslationJob job)
+        public async Task<bool> CreateJobAsync(TranslationJob job)
         {
-            job.Status = "New";
+            // job.Status = "New";
             SetPrice(job);
             _context.TranslationJobs.Add(job);
             bool success = _context.SaveChanges() > 0;
@@ -71,11 +78,32 @@ namespace TranslationManagement.Api.Controllers
                 _logger.LogInformation("New job notification sent");
             }
 
-            return success;
+
+            try
+            {
+                var text = $"";
+
+                bool notificationSent = await _retryPolicy.Execute(() => _notificationService.SendNotification("Job created: " + job.Id));
+
+                if (notificationSent)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the exception for further investigation
+                Console.WriteLine($"Error sending notification: {ex.Message}");
+                return false;
+            }
         }
 
         [HttpPost]
-        public bool CreateJobWithFile(IFormFile file, string customer)
+        public async Task<bool> CreateJobWithFile(IFormFile file, string customer)
         {
             var reader = new StreamReader(file.OpenReadStream());
             string content;
@@ -104,28 +132,28 @@ namespace TranslationManagement.Api.Controllers
 
             SetPrice(newJob);
 
-            return CreateJob(newJob);
+            return await CreateJobAsync(newJob);
         }
 
         [HttpPost]
         public string UpdateJobStatus(int jobId, int translatorId, string newStatus = "")
         {
             _logger.LogInformation("Job status update request received: " + newStatus + " for job " + jobId.ToString() + " by translator " + translatorId);
-            if (typeof(JobStatuses).GetProperties().Count(prop => prop.Name == newStatus) == 0)
-            {
-                return "invalid status";
-            }
+            // if (typeof(JobStatuses).GetProperties().Count(prop => prop.Name == newStatus) == 0)
+            // {
+            //     return "invalid status";
+            // }
 
-            var job = _context.TranslationJobs.Single(j => j.Id == jobId);
+            // var job = _context.TranslationJobs.Single(j => j.Id == jobId);
 
-            bool isInvalidStatusChange = (job.Status == JobStatuses.New && newStatus == JobStatuses.Completed) ||
-                                         job.Status == JobStatuses.Completed || newStatus == JobStatuses.New;
-            if (isInvalidStatusChange)
-            {
-                return "invalid status change";
-            }
+            // bool isInvalidStatusChange = (job.Status == JobStatuses.New && newStatus == JobStatuses.Completed) ||
+            //                              job.Status == JobStatuses.Completed || newStatus == JobStatuses.New;
+            // if (isInvalidStatusChange)
+            // {
+            //     return "invalid status change";
+            // }
 
-            job.Status = newStatus;
+            // job.Status = newStatus;
             _context.SaveChanges();
             return "updated";
         }

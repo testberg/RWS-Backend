@@ -5,17 +5,18 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TranslationManagement.Api;
 
+#nullable disable
+
 namespace TranslationManagement.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20210203102420_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20231218221150_AlterTables")]
+    partial class AlterTables
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder
-                .HasAnnotation("ProductVersion", "5.0.2");
+            modelBuilder.HasAnnotation("ProductVersion", "6.0.24");
 
             modelBuilder.Entity("TranslationManagement.Api.Controlers.TranslatorManagementController+Translator", b =>
                 {
@@ -32,8 +33,8 @@ namespace TranslationManagement.Api.Migrations
                     b.Property<string>("Name")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Status")
-                        .HasColumnType("TEXT");
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -55,8 +56,8 @@ namespace TranslationManagement.Api.Migrations
                     b.Property<double>("Price")
                         .HasColumnType("REAL");
 
-                    b.Property<string>("Status")
-                        .HasColumnType("TEXT");
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("TranslatedContent")
                         .HasColumnType("TEXT");
