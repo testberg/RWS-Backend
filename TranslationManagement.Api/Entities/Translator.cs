@@ -8,9 +8,9 @@ namespace TranslationManagement.Api.Entities
 {
     public class Translator
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; }
         public string Name { get; set; }
-        public string HourlyRate { get; set; }
+        public double HourlyRate { get; set; }
         public TranslatorStatus Status { get; set; }
         public string CreditCardNumber { get; set; }
     }
