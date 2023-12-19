@@ -3,6 +3,7 @@ using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using TranslationManagement.Api.Entities;
 
 namespace TranslationManagement.Api.Controlers
 {
@@ -10,17 +11,6 @@ namespace TranslationManagement.Api.Controlers
     [Route("api/TranslatorsManagement/[action]")]
     public class TranslatorManagementController : ControllerBase
     {
-        public enum TranslatorStatus { Applicant, Certified, Deleted };
-
-        public class Translator
-        {
-            public int Id { get; set; }
-            public string Name { get; set; }
-            public string HourlyRate { get; set; }
-            public TranslatorStatus Status { get; set; }
-            public string CreditCardNumber { get; set; }
-        }
-
         private readonly ILogger<TranslatorManagementController> _logger;
         private AppDbContext _context;
 

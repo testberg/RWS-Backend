@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Polly.Retry;
 using TranslationManagement.Api.Controlers;
+using TranslationManagement.Api.Entities;
 
 namespace TranslationManagement.Api.Controllers
 {
@@ -18,23 +19,6 @@ namespace TranslationManagement.Api.Controllers
     [Route("api/jobs/[action]")]
     public class TranslationJobController : ControllerBase
     {
-        public class TranslationJob
-        {
-            public int Id { get; set; }
-            public string CustomerName { get; set; }
-            public JobStatus Status { get; set; }
-            public string OriginalContent { get; set; }
-            public string TranslatedContent { get; set; }
-            public double Price { get; set; }
-        }
-
-        public enum JobStatus
-        {
-            New,
-            Inprogress,
-            Completed,
-        }
-
         private AppDbContext _context;
         private readonly ILogger<TranslatorManagementController> _logger;
         private readonly INotificationService _notificationService;
@@ -78,25 +62,13 @@ namespace TranslationManagement.Api.Controllers
                 _logger.LogInformation("New job notification sent");
             }
 
-
             try
             {
-                var text = $"";
-
                 bool notificationSent = await _retryPolicy.Execute(() => _notificationService.SendNotification("Job created: " + job.Id));
-
-                if (notificationSent)
-                {
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
+                return notificationSent;
             }
             catch (Exception ex)
             {
-                // Log the exception for further investigation
                 Console.WriteLine($"Error sending notification: {ex.Message}");
                 return false;
             }

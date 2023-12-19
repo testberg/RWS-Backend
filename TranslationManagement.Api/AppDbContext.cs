@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using TranslationManagement.Api.Controlers;
 using TranslationManagement.Api.Controllers;
+using TranslationManagement.Api.Entities;
 
 namespace TranslationManagement.Api
 {
@@ -10,7 +11,7 @@ namespace TranslationManagement.Api
         {
         }
 
-        public DbSet<TranslationJobController.TranslationJob> TranslationJobs { get; set; }
-        public DbSet<TranslatorManagementController.Translator> Translators { get; set; }
+        public DbSet<TranslationJob> TranslationJobs { get; set; }
+        public DbSet<Translator> Translators { get; set; }
     }
 }
