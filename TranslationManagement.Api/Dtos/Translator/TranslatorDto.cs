@@ -1,9 +1,9 @@
 using System;
 using TranslationManagement.Api.Enums;
 
-namespace TranslationManagement.Api.Dtos
+namespace TranslationManagement.Api.Dtos.Translator
 {
-    public class ListTranslatorRequestDto
+    public class TranslatorDto
     {
         public Guid Id { get; set; }
         public string Name { get; set; }

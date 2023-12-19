@@ -1,6 +1,6 @@
 using TranslationManagement.Api.Enums;
 
-namespace TranslationManagement.Api.Dtos
+namespace TranslationManagement.Api.Dtos.Translator
 {
     public class CreateTranslatorRequestDto
     {

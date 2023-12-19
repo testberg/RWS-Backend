@@ -4,11 +4,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using TranslationManagement.Api.Enums;
 
-namespace TranslationManagement.Api.Entities
+namespace TranslationManagement.Api.Dtos.TranslationJobs
 {
-    public class TranslationJob
+    public class TranslationJobDto
     {
-        public Guid Id { get; set; }
+        public int Id { get; set; }
         public string CustomerName { get; set; }
         public JobStatus Status { get; set; }
         public string OriginalContent { get; set; }
