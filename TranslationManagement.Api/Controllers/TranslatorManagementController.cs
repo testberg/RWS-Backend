@@ -13,48 +13,77 @@ namespace TranslationManagement.Api.Controlers
     public class TranslatorManagementController : ControllerBase
     {
         private readonly ILogger<TranslatorManagementController> _logger;
-        private AppDbContext _context;
+        private readonly AppDbContext _context;
 
-        public TranslatorManagementController(IServiceScopeFactory scopeFactory, ILogger<TranslatorManagementController> logger)
+        public TranslatorManagementController(AppDbContext context, ILogger<TranslatorManagementController> logger)
         {
-            _context = scopeFactory.CreateScope().ServiceProvider.GetService<AppDbContext>();
+            _context = context;
             _logger = logger;
         }
 
         [HttpGet]
-        public Translator[] GetTranslators()
+        public IActionResult GetTranslators()
         {
-            return _context.Translators.ToArray();
+            var translators = _context.Translators.ToArray();
+            return Ok(translators);
         }
 
         [HttpGet]
-        public Translator[] GetTranslatorsByName(string name)
+        public IActionResult GetTranslatorsByName(string name)
         {
-            return _context.Translators.Where(t => t.Name == name).ToArray();
-        }
-
-        [HttpPost]
-        public bool AddTranslator(Translator translator)
-        {
-            _context.Translators.Add(translator);
-            return _context.SaveChanges() > 0;
-        }
-
-        [HttpPost]
-        public string UpdateTranslatorStatus(int Translator, string newStatus = "")
-        {
-            _logger.LogInformation("User status update request: " + newStatus + " for user " + Translator.ToString());
-            TranslatorStatus status;
-            bool parsed = Enum.TryParse(newStatus, out status);
-            if (!parsed)
+            if (string.IsNullOrEmpty(name))
             {
-                throw new ArgumentException("unknown status");
+                return BadRequest("Name parameter is required.");
             }
-            var job = _context.Translators.Single(j => j.Id == Translator);
-            job.Status = status;
-            _context.SaveChanges();
 
-            return "updated";
+            var translators = _context.Translators.Where(t => t.Name == name).ToArray();
+            return Ok(translators);
+        }
+
+        [HttpPost]
+        public IActionResult AddTranslator(Translator translator)
+        {
+            if (translator == null)
+            {
+                return BadRequest("Translator object is null.");
+            }
+
+            _context.Translators.Add(translator);
+            bool success = _context.SaveChanges() > 0;
+
+            if (success)
+            {
+                return Ok("Translator added successfully.");
+            }
+
+            return BadRequest("Failed to add translator.");
+        }
+
+        [HttpPut]
+        public IActionResult UpdateTranslatorStatus(int translatorId, string newStatus = "")
+        {
+            _logger.LogInformation($"User status update request: {newStatus} for user {translatorId}");
+
+            if (string.IsNullOrEmpty(newStatus))
+            {
+                return BadRequest("New status is required.");
+            }
+
+            if (!Enum.TryParse(newStatus, out TranslatorStatus status))
+            {
+                return BadRequest("Unknown status.");
+            }
+
+            var translator = _context.Translators.SingleOrDefault(t => t.Id == translatorId);
+
+            if (translator != null)
+            {
+                translator.Status = status;
+                _context.SaveChanges();
+                return Ok("Translator status updated successfully.");
+            }
+
+            return NotFound("Translator not found.");
         }
     }
 }
