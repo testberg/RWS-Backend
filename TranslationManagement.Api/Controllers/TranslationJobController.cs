@@ -9,9 +9,11 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Polly;
 using Polly.Retry;
 using TranslationManagement.Api.Controlers;
 using TranslationManagement.Api.Entities;
+using TranslationManagement.Api.Enums;
 
 namespace TranslationManagement.Api.Controllers
 {
@@ -22,15 +24,16 @@ namespace TranslationManagement.Api.Controllers
         private AppDbContext _context;
         private readonly ILogger<TranslatorManagementController> _logger;
         private readonly INotificationService _notificationService;
-        private readonly RetryPolicy _retryPolicy;
-
+        private static readonly AsyncRetryPolicy RetryPolicy = Policy
+        .Handle<Exception>()
+        .WaitAndRetryAsync(3, attempt => TimeSpan.FromSeconds(0));
+        const double PricePerCharacter = 0.01; // it should be a value in DB
         public TranslationJobController(IServiceScopeFactory scopeFactory, ILogger<TranslatorManagementController> logger, INotificationService notificationService,
         RetryPolicy retryPolicy)
         {
             _context = scopeFactory.CreateScope().ServiceProvider.GetService<AppDbContext>();
             _logger = logger;
             _notificationService = notificationService;
-            _retryPolicy = retryPolicy;
         }
 
         [HttpGet]
@@ -39,37 +42,25 @@ namespace TranslationManagement.Api.Controllers
             return _context.TranslationJobs.ToArray();
         }
 
-        const double PricePerCharacter = 0.01;
-        private void SetPrice(TranslationJob job)
-        {
-            job.Price = job.OriginalContent.Length * PricePerCharacter;
-        }
-
         [HttpPost]
         public async Task<bool> CreateJobAsync(TranslationJob job)
         {
-            // job.Status = "New";
+            job.Status = JobStatus.New;
             SetPrice(job);
             _context.TranslationJobs.Add(job);
             bool success = _context.SaveChanges() > 0;
-            if (success)
-            {
-                var notificationSvc = new UnreliableNotificationService();
-                while (!notificationSvc.SendNotification("Job created: " + job.Id).Result)
-                {
-                }
 
-                _logger.LogInformation("New job notification sent");
-            }
+            if (!success) return false;
 
             try
             {
-                bool notificationSent = await _retryPolicy.Execute(() => _notificationService.SendNotification("Job created: " + job.Id));
+                bool notificationSent = await RetryPolicy
+                .ExecuteAsync(() => _notificationService.SendNotification("Job created: " + job.Id));
                 return notificationSent;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error sending notification: {ex.Message}");
+                _logger.LogInformation($"New job notification sent {ex.Message}");
                 return false;
             }
         }
@@ -111,23 +102,23 @@ namespace TranslationManagement.Api.Controllers
         public string UpdateJobStatus(int jobId, int translatorId, string newStatus = "")
         {
             _logger.LogInformation("Job status update request received: " + newStatus + " for job " + jobId.ToString() + " by translator " + translatorId);
-            // if (typeof(JobStatuses).GetProperties().Count(prop => prop.Name == newStatus) == 0)
-            // {
-            //     return "invalid status";
-            // }
+            JobStatus status;
+            bool parsed = Enum.TryParse(newStatus, out status);
+            var job = _context.TranslationJobs.Single(j => j.Id == jobId);
 
-            // var job = _context.TranslationJobs.Single(j => j.Id == jobId);
+            if (!parsed || (int)status < (int)job.Status)
+            {
+                return "invalid status";
+            }
 
-            // bool isInvalidStatusChange = (job.Status == JobStatuses.New && newStatus == JobStatuses.Completed) ||
-            //                              job.Status == JobStatuses.Completed || newStatus == JobStatuses.New;
-            // if (isInvalidStatusChange)
-            // {
-            //     return "invalid status change";
-            // }
-
-            // job.Status = newStatus;
+            job.Status = status;
             _context.SaveChanges();
             return "updated";
+        }
+
+        private void SetPrice(TranslationJob job)
+        {
+            job.Price = job.OriginalContent.Length * PricePerCharacter;
         }
     }
 }

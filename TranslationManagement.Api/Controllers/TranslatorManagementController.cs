@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using TranslationManagement.Api.Entities;
+using TranslationManagement.Api.Enums;
 
 namespace TranslationManagement.Api.Controlers
 {
@@ -43,13 +44,14 @@ namespace TranslationManagement.Api.Controlers
         public string UpdateTranslatorStatus(int Translator, string newStatus = "")
         {
             _logger.LogInformation("User status update request: " + newStatus + " for user " + Translator.ToString());
-            // if (TranslatorStatuses.Where(status => status == newStatus).Count() == 0)
-            // {
-            //     throw new ArgumentException("unknown status");
-            // }
-
-            // var job = _context.Translators.Single(j => j.Id == Translator);
-            // job.Status = newStatus;
+            TranslatorStatus status;
+            bool parsed = Enum.TryParse(newStatus, out status);
+            if (!parsed)
+            {
+                throw new ArgumentException("unknown status");
+            }
+            var job = _context.Translators.Single(j => j.Id == Translator);
+            job.Status = status;
             _context.SaveChanges();
 
             return "updated";
