@@ -1,7 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection.Metadata.Ecma335;
 using System.Threading.Tasks;
 using External.ThirdParty.Services;
 using Microsoft.Extensions.Logging;
@@ -14,21 +11,40 @@ namespace TranslationManagement.Api.Application
     {
         private readonly ILogger<NotificationClient> _logger;
         private readonly INotificationService _notificationService;
+        private readonly AsyncRetryPolicy _retryPolicy;
+
         public NotificationClient(ILogger<NotificationClient> logger, INotificationService notificationService)
         {
             _logger = logger;
             _notificationService = notificationService;
+
+            _retryPolicy = Policy
+                .Handle<Exception>()
+                .WaitAndRetryAsync(
+                    4,
+                    attempt => TimeSpan.FromSeconds(1),
+                    (exception, timeSpan, attempt, context) =>
+                    {
+                        _logger.LogWarning($"Retry attempt {attempt} failed after {timeSpan.TotalSeconds} seconds. Exception: {exception.Message}");
+                    });
         }
+
         public async Task<bool> Notify(int id)
         {
-            AsyncRetryPolicy RetryPolicy = Policy
-                            .Handle<Exception>()
-                            .WaitAndRetryAsync(3, attempt => TimeSpan.FromSeconds(0));
+            try
+            {
+                bool notificationSent = await _retryPolicy.ExecuteAsync(async () =>
+                {
+                    return await _notificationService.SendNotification($"Job created: {id}");
+                });
 
-            bool notificationSent = await RetryPolicy
-            .ExecuteAsync(() => _notificationService.SendNotification("Job created: " + id));
-
-            return notificationSent;
+                return notificationSent;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Failed to send notification for job {id}: {ex.Message}");
+                return false;
+            }
         }
     }
 }
