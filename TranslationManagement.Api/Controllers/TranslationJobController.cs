@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Polly;
 using Polly.Retry;
+using TranslationManagement.Api.Application;
 using TranslationManagement.Api.Controlers;
 using TranslationManagement.Api.Entities;
 using TranslationManagement.Api.Enums;
@@ -23,17 +24,13 @@ namespace TranslationManagement.Api.Controllers
     {
         private AppDbContext _context;
         private readonly ILogger<TranslatorManagementController> _logger;
-        private readonly INotificationService _notificationService;
-        private static readonly AsyncRetryPolicy RetryPolicy = Policy
-        .Handle<Exception>()
-        .WaitAndRetryAsync(3, attempt => TimeSpan.FromSeconds(0));
+        private readonly NotificationClient _notificationClient;
         const double PricePerCharacter = 0.01; // it should be a value in DB
-        public TranslationJobController(IServiceScopeFactory scopeFactory, ILogger<TranslatorManagementController> logger, INotificationService notificationService,
-        RetryPolicy retryPolicy)
+        public TranslationJobController(IServiceScopeFactory scopeFactory, ILogger<TranslatorManagementController> logger, NotificationClient notificationClient)
         {
             _context = scopeFactory.CreateScope().ServiceProvider.GetService<AppDbContext>();
             _logger = logger;
-            _notificationService = notificationService;
+            _notificationClient = notificationClient;
         }
 
         [HttpGet]
@@ -54,9 +51,7 @@ namespace TranslationManagement.Api.Controllers
 
             try
             {
-                bool notificationSent = await RetryPolicy
-                .ExecuteAsync(() => _notificationService.SendNotification("Job created: " + job.Id));
-                return notificationSent;
+                return await _notificationClient.Notify(job.Id);
             }
             catch (Exception ex)
             {
