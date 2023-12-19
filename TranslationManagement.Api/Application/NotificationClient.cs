@@ -18,6 +18,10 @@ namespace TranslationManagement.Api.Application
             _logger = logger;
             _notificationService = notificationService;
 
+            // I had to limit this policy as this is not proper for production
+            // better to use messaging queue of notifications
+            // queue will be processed in async blocking way.
+
             _retryPolicy = Policy
                 .Handle<Exception>()
                 .WaitAndRetryAsync(
@@ -29,7 +33,7 @@ namespace TranslationManagement.Api.Application
                     });
         }
 
-        public async Task<bool> Notify(int id)
+        public async void Notify(int id)
         {
             try
             {
@@ -38,12 +42,10 @@ namespace TranslationManagement.Api.Application
                     return await _notificationService.SendNotification($"Job created: {id}");
                 });
 
-                return notificationSent;
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Failed to send notification for job {id}: {ex.Message}");
-                return false;
             }
         }
     }
