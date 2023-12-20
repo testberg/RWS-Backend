@@ -89,7 +89,7 @@ namespace TranslationManagement.Api.Controllers
             return CreatedAtAction(nameof(CreateJobAsync), newJob);
         }
 
-        [HttpPut]
+        [HttpPut("{jobId}/{translatorId}")]
         public async Task<IActionResult> UpdateJobStatus(Guid jobId, Guid translatorId, string newStatus = "")
         {
             Guard.IsAssignableToType<Guid>(jobId);
@@ -98,7 +98,7 @@ namespace TranslationManagement.Api.Controllers
 
             _logger.LogInformation($"Job status update request received: {newStatus} for job {jobId} by translator {translatorId}");
 
-            var job = _context.TranslationJobs.FirstOrDefault(j => j.Id == jobId);
+            var job = _context.TranslationJobs.FirstOrDefault(j => j.Id == jobId && j.TranslatorId == translatorId);
 
             if (job == null)
             {
@@ -127,7 +127,7 @@ namespace TranslationManagement.Api.Controllers
         }
 
 
-        [HttpPut]
+        [HttpPut("{jobId}")]
         public async Task<IActionResult> UpdateJobTranslator(Guid jobId, Guid translatorId)
         {
 
