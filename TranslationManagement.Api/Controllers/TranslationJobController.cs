@@ -1,16 +1,17 @@
 ﻿using System;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using External.ThirdParty.Services;
 using TranslationManagement.Api.Application;
-using TranslationManagement.Api.Entities;
 using TranslationManagement.Api.Enums;
+using TranslationManagement.Api.Dtos.TranslationJobs;
+using CommunityToolkit.Diagnostics;
+using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using AutoMapper;
+using TranslationManagement.Api.Entities;
 
 namespace TranslationManagement.Api.Controllers
 {
@@ -21,28 +22,36 @@ namespace TranslationManagement.Api.Controllers
         private readonly AppDbContext _context;
         private readonly ILogger<TranslationJobController> _logger;
         private readonly NotificationClient _notificationClient;
-        private const double PricePerCharacter = 0.01; // It should be a value in the database
+        private readonly TranslationFileReaderService _translationFileReader;
+        private readonly Mapper _mapper;
 
-        public TranslationJobController(AppDbContext context, ILogger<TranslationJobController> logger, NotificationClient notificationClient)
+        public TranslationJobController(AppDbContext context, ILogger<TranslationJobController> logger, NotificationClient notificationClient,
+        TranslationFileReaderService translationFileReader,
+        Mapper mapper
+        )
         {
             _context = context;
             _logger = logger;
             _notificationClient = notificationClient;
+            _translationFileReader = translationFileReader;
+            _mapper = mapper;
         }
 
         [HttpGet]
-        public IActionResult GetJobs()
+        public async Task<ActionResult<List<TranslationJobDto>>> GetJobs()
         {
-            var jobs = _context.TranslationJobs.ToArray();
+            var jobs = await _context.TranslationJobs.ToListAsync();
             return Ok(jobs);
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateJobAsync(TranslationJob job)
+        public async Task<ActionResult<TranslationJobDto>> CreateJobAsync(CreateTranslationJobDto job)
         {
-            job.Status = JobStatus.New;
-            SetPrice(job);
-            _context.TranslationJobs.Add(job);
+            Guard.IsAssignableToType<CreateTranslationJobDto>(job);
+
+            var jobObj = _mapper.Map<TranslationJob>(job);
+            _context.TranslationJobs.Add(jobObj);
+
             bool success = await _context.SaveChangesAsync() > 0;
 
             if (!success)
@@ -50,80 +59,108 @@ namespace TranslationManagement.Api.Controllers
                 return BadRequest("Failed to create job.");
             }
 
-            try
-            {
-                bool notificationResult = await _notificationClient.Notify(job.Id);
-                return Ok(notificationResult);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Failed to send new job notification: {ex.Message}");
-                return StatusCode(500, "Failed to send notification.");
-            }
+
+            _notificationClient.Notify(jobObj.Id);
+
+            return _mapper.Map<TranslationJobDto>(jobObj);
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateJobWithFile(IFormFile file, string customer)
+        public ActionResult<TranslationJobDto> CreateJobWithFile(IFormFile file, string customer)
         {
             if (file == null || file.Length == 0)
             {
                 return BadRequest("File is required.");
             }
 
-            var reader = new StreamReader(file.OpenReadStream());
-            string content;
+            var content = _translationFileReader.GetContnet(file);
 
-            if (file.FileName.EndsWith(".txt"))
-            {
-                content = reader.ReadToEnd();
-            }
-            else if (file.FileName.EndsWith(".xml"))
-            {
-                var xdoc = XDocument.Parse(reader.ReadToEnd());
-                content = xdoc.Root.Element("Content").Value;
-                customer = xdoc.Root.Element("Customer").Value.Trim();
-            }
-            else
+            if (content == null)
             {
                 return BadRequest("Unsupported file format.");
             }
 
-            var newJob = new TranslationJob()
+            var newJob = new CreateTranslationJobDto()
             {
-                OriginalContent = content,
-                TranslatedContent = "",
-                CustomerName = customer,
+                CustomerName = customer != null ? customer : content.Customer,
+                OriginalContent = content.Content
             };
 
-            SetPrice(newJob);
-
-            return await CreateJobAsync(newJob);
+            return CreatedAtAction(nameof(CreateJobAsync), newJob);
         }
 
         [HttpPut]
-        public IActionResult UpdateJobStatus(int jobId, int translatorId, string newStatus = "")
+        public async Task<IActionResult> UpdateJobStatus(Guid jobId, Guid translatorId, string newStatus = "")
         {
+            Guard.IsAssignableToType<Guid>(jobId);
+            Guard.IsAssignableToType<Guid>(translatorId);
+            Guard.IsAssignableToType<JobStatus>(newStatus);
+
             _logger.LogInformation($"Job status update request received: {newStatus} for job {jobId} by translator {translatorId}");
-            JobStatus status;
 
-            if (Enum.TryParse(newStatus, out status))
+            var job = _context.TranslationJobs.FirstOrDefault(j => j.Id == jobId);
+
+            if (job == null)
             {
-                var job = _context.TranslationJobs.SingleOrDefault(j => j.Id == jobId);
-
-                if (job != null && (int)status >= (int)job.Status)
-                {
-                    job.Status = status;
-                    _context.SaveChanges();
-                    return Ok("Job status updated.");
-                }
+                return NotFound("Translator not found.");
             }
 
-            return BadRequest("Invalid status or job not found.");
+            Enum.TryParse(newStatus, out JobStatus status);
+
+            if ((int)status >= (int)job.Status)
+            {
+                return BadRequest("Translator status updated successfully.");
+            }
+
+            job.Status = status;
+            try
+            {
+                var result = await _context.SaveChangesAsync() > 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Internal server error: {ex.Message}");
+                return StatusCode(500, $"Internal server error");
+            }
+
+            return Ok("Job status updated.");
         }
 
-        private void SetPrice(TranslationJob job)
+
+        [HttpPut]
+        public async Task<IActionResult> UpdateJobTranslator(Guid jobId, Guid translatorId)
         {
-            job.Price = job.OriginalContent.Length * PricePerCharacter;
+
+            Guard.IsAssignableToType<Guid>(jobId);
+            Guard.IsAssignableToType<Guid>(translatorId);
+
+            _logger.LogInformation($"Set translator {translatorId} for job {jobId}");
+
+            var translator = _context.Translators.FirstOrDefault(j => j.Id == translatorId);
+
+            if (translator.Status != TranslatorStatus.Certified)
+            {
+                return BadRequest($"Translator must be {TranslatorStatus.Certified}.");
+            }
+
+            var job = _context.TranslationJobs.FirstOrDefault(j => j.Id == jobId);
+
+            if (job == null)
+            {
+                return NotFound("Translator not found.");
+            }
+
+            try
+            {
+                var result = await _context.SaveChangesAsync() > 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Internal server error: {ex.Message}");
+                return StatusCode(500, $"Internal server error");
+            }
+
+            return Ok("Job status updated.");
         }
     }
 }

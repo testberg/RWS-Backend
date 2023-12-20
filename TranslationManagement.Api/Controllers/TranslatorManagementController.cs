@@ -1,8 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using AutoMapper;
+using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using TranslationManagement.Api.Dtos.Translator;
 using TranslationManagement.Api.Entities;
 using TranslationManagement.Api.Enums;
 
@@ -14,76 +19,92 @@ namespace TranslationManagement.Api.Controlers
     {
         private readonly ILogger<TranslatorManagementController> _logger;
         private readonly AppDbContext _context;
+        private readonly IMapper _mapper;
 
-        public TranslatorManagementController(AppDbContext context, ILogger<TranslatorManagementController> logger)
+        public TranslatorManagementController(AppDbContext context, ILogger<TranslatorManagementController> logger, IMapper mapper)
         {
             _context = context;
             _logger = logger;
+            _mapper = mapper;
         }
 
         [HttpGet]
-        public IActionResult GetTranslators()
+        public async Task<ActionResult<List<TranslatorDto>>> GetTranslators()
         {
-            var translators = _context.Translators.ToArray();
-            return Ok(translators);
+            var translators = await _context.Translators
+            .ToListAsync();
+
+            return Ok(_mapper.Map<List<TranslatorDto>>(translators));
         }
 
-        [HttpGet]
-        public IActionResult GetTranslatorsByName(string name)
+        [HttpGet("{name}")]
+        public async Task<ActionResult<TranslatorDto>> GetTranslatorsByName(string name)
         {
-            if (string.IsNullOrEmpty(name))
-            {
-                return BadRequest("Name parameter is required.");
-            }
+            Guard.IsNotNullOrEmpty(name);
+            var translator = await _context.Translators
+                .FirstOrDefaultAsync(t => t.Name == name);
 
-            var translators = _context.Translators.Where(t => t.Name == name).ToArray();
-            return Ok(translators);
+            if (translator == null) return NotFound($"Translator {name} not found!");
+
+            return Ok(_mapper.Map<TranslatorDto>(translator));
         }
 
         [HttpPost]
-        public IActionResult AddTranslator(Translator translator)
+        public async Task<ActionResult<TranslatorDto>> CreateTranslator(CreateTranslatorDto translatorDto)
         {
-            if (translator == null)
-            {
-                return BadRequest("Translator object is null.");
-            }
+            Guard.IsAssignableToType<CreateTranslatorDto>(translatorDto);
+
+            var translator = _mapper.Map<Translator>(translatorDto);
 
             _context.Translators.Add(translator);
-            bool success = _context.SaveChanges() > 0;
-
-            if (success)
+            try
             {
-                return Ok("Translator added successfully.");
-            }
+                var result = await _context.SaveChangesAsync() > 0;
 
-            return BadRequest("Failed to add translator.");
+                if (!result)
+                {
+                    return BadRequest("Failed to add translator.");
+                }
+
+                return CreatedAtAction(nameof(GetTranslatorsByName),
+               new { translator.Name }, _mapper.Map<TranslatorDto>(translator));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Internal server error: {ex.Message}");
+                return StatusCode(500, $"Internal server error");
+            }
         }
 
-        [HttpPut]
-        public IActionResult UpdateTranslatorStatus(int translatorId, string newStatus = "")
+        [HttpPut("{id}")]
+        public async Task<ActionResult> UpdateTranslatorStatus(Guid id, string newStatus)
         {
-            _logger.LogInformation($"User status update request: {newStatus} for user {translatorId}");
+            Guard.IsAssignableToType<Guid>(id);
+            Guard.IsAssignableToType<TranslatorStatus>(newStatus);
 
-            if (string.IsNullOrEmpty(newStatus))
+            _logger.LogInformation($"User status update request: {newStatus} for translator {id}");
+
+            var translator = _context.Translators.FirstOrDefault(t => t.Id == id);
+
+            Enum.TryParse(newStatus, out TranslatorStatus status);
+
+            translator.Status = status;
+            try
             {
-                return BadRequest("New status is required.");
-            }
+                var result = await _context.SaveChangesAsync() > 0;
 
-            if (!Enum.TryParse(newStatus, out TranslatorStatus status))
+                if (result)
+                {
+                    return Ok("Translator status updated successfully.");
+
+                }
+                return NotFound("Translator not found.");
+            }
+            catch (Exception ex)
             {
-                return BadRequest("Unknown status.");
+                _logger.LogError($"Internal server error: {ex.Message}");
+                return StatusCode(500, $"Internal server error");
             }
-
-            var translator = _context.Translators.SingleOrDefault(t => t.Id == translatorId);
-
-            if (translator != null)
-            {
-                translator.Status = status;
-                _context.SaveChanges();
-                return Ok("Translator status updated successfully.");
-            }
-
-            return NotFound("Translator not found.");
         }
     }
 }

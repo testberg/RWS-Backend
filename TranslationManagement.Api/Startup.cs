@@ -4,6 +4,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi.Models;
 using Microsoft.EntityFrameworkCore;
+using System;
+using TranslationManagement.Api.Application;
+using External.ThirdParty.Services;
 
 namespace TranslationManagement.Api
 {
@@ -18,14 +21,23 @@ namespace TranslationManagement.Api
 
         public void ConfigureServices(IServiceCollection services)
         {
+
+            services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+            services.AddScoped<INotificationService, UnreliableNotificationService>();
+            services.AddScoped<INotificationClient, NotificationClient>();
+            services.AddScoped<ITranslationFileReaderService, TranslationFileReaderService>();
+            
+
             services.AddControllers();
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "TranslationManagement.Api", Version = "v1" });
             });
 
-            services.AddDbContext<AppDbContext>(options => 
+            services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlite("Data Source=TranslationAppDatabase.db"));
+
+
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)

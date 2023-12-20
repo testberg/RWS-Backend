@@ -7,9 +7,8 @@ namespace TranslationManagement.Api.Dtos.Translator
     {
         public Guid Id { get; set; }
         public string Name { get; set; }
-        public TranslatorStatus Status { get; set; }
-
-        // no creditCard info should be exposed or rate.
-        // so far no info security messures has been introudced 
+        public string Status { get; set; }
+        public double HourlyRate { get; set; }
+        public string CreditCardNumber { get; set; }
     }
 }

@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Threading.Tasks;
 using TranslationManagement.Api.Enums;
 
 namespace TranslationManagement.Api.Entities
 {
+
+    // [Table("Translators")]
     public class Translator
     {
         public Guid Id { get; set; }

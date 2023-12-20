@@ -14,5 +14,8 @@ namespace TranslationManagement.Api.Entities
         public string OriginalContent { get; set; }
         public string TranslatedContent { get; set; }
         public double Price { get; set; }
+        // nav property
+        public Translator Translator { get; set; }
+        public Guid TranslatorId { get; set; }
     }
 }

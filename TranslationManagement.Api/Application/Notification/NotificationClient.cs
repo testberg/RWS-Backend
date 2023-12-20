@@ -7,7 +7,7 @@ using Polly.Retry;
 
 namespace TranslationManagement.Api.Application
 {
-    public class NotificationClient
+    public class NotificationClient : INotificationClient
     {
         private readonly ILogger<NotificationClient> _logger;
         private readonly INotificationService _notificationService;
@@ -18,22 +18,12 @@ namespace TranslationManagement.Api.Application
             _logger = logger;
             _notificationService = notificationService;
 
-            // I had to limit this policy as this is not proper for production
-            // better to use messaging queue of notifications
-            // queue will be processed in async blocking way.
-
             _retryPolicy = Policy
                 .Handle<Exception>()
-                .WaitAndRetryAsync(
-                    4,
-                    attempt => TimeSpan.FromSeconds(1),
-                    (exception, timeSpan, attempt, context) =>
-                    {
-                        _logger.LogWarning($"Retry attempt {attempt} failed after {timeSpan.TotalSeconds} seconds. Exception: {exception.Message}");
-                    });
+                .RetryForeverAsync();
         }
 
-        public async void Notify(int id)
+        public async void Notify(Guid id)
         {
             try
             {
