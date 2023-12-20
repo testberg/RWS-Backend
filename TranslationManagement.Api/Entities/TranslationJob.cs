@@ -17,5 +17,7 @@ namespace TranslationManagement.Api.Entities
         // nav property
         public Translator Translator { get; set; }
         public Guid TranslatorId { get; set; }
+
+        public bool CurrentPricPrice() => Price > 0;
     }
 }
