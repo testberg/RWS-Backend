@@ -2,44 +2,40 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
-using System.Threading.Tasks;
 using TranslationManagement.Api.Enums;
 
-namespace TranslationManagement.Api.Dtos.TranslationJobs
+namespace TranslationManagement.Api.Dtos
 {
     public class CreateTranslationJobDto
     {
-        private static double PricePerCharacter = 0.01;
-        string _originalContent = "";
-        double _price = 0;
-        public string Status = JobStatus.New.ToString();
-        public string TranslatedContent = "";
+        private const double PRICE_PER_CHARACHTER = 0.01;
+        private string _originalContent;
+
+        public CreateTranslationJobDto()
+        {
+            Status = JobStatus.New.ToString();
+            TranslatedContent = "";
+        }
 
         [Required]
         public string CustomerName { get; set; }
-        [Required]
+
+        [Required(ErrorMessage = "OriginalContent cannot be empty.")]
         public string OriginalContent
         {
             get { return _originalContent; }
             set
             {
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    throw new ArgumentException("OriginalContent cannot be empty or whitespace.");
+                }
                 _originalContent = value;
+                Price = PRICE_PER_CHARACHTER * value.Length;
             }
         }
-        public double Price
-        {
-            get { return _price; }
-            set
-            {
-                if (_price == 0)
-                {
-                    _price = _originalContent.Length * PricePerCharacter;
-                }
-                else
-                {
-                    _price = value;
-                }
-            }
-        }
+        public double Price { get; private set; }
+        public string Status { get; private set; }
+        public string TranslatedContent { get; private set; }
     }
 }

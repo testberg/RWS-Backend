@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using TranslationManagement.Api.Application;
 using TranslationManagement.Api.Enums;
-using TranslationManagement.Api.Dtos.TranslationJobs;
 using CommunityToolkit.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using AutoMapper;
 using TranslationManagement.Api.Entities;
+using TranslationManagement.Api.Dtos;
+using System.IO;
+using AutoMapper.QueryableExtensions;
 
 namespace TranslationManagement.Api.Controllers
 {
@@ -21,13 +23,14 @@ namespace TranslationManagement.Api.Controllers
     {
         private readonly AppDbContext _context;
         private readonly ILogger<TranslationJobController> _logger;
-        private readonly NotificationClient _notificationClient;
-        private readonly TranslationFileReaderService _translationFileReader;
-        private readonly Mapper _mapper;
-
-        public TranslationJobController(AppDbContext context, ILogger<TranslationJobController> logger, NotificationClient notificationClient,
-        TranslationFileReaderService translationFileReader,
-        Mapper mapper
+        private readonly INotificationClient _notificationClient;
+        private readonly ITranslationFileReaderService _translationFileReader;
+        private readonly IMapper _mapper;
+        public TranslationJobController(AppDbContext context,
+        ILogger<TranslationJobController> logger,
+        INotificationClient notificationClient,
+        ITranslationFileReaderService translationFileReader,
+        IMapper mapper
         )
         {
             _context = context;
@@ -40,37 +43,30 @@ namespace TranslationManagement.Api.Controllers
         [HttpGet]
         public async Task<ActionResult<List<TranslationJobDto>>> GetJobs()
         {
-            var jobs = await _context.TranslationJobs.ToListAsync();
-            return Ok(jobs);
+            var jobsDtos = await _context.TranslationJobs
+            .ProjectTo<TranslationJobDto>(_mapper.ConfigurationProvider)
+            .ToListAsync();
+
+            return Ok(jobsDtos);
         }
 
         [HttpPost]
         public async Task<ActionResult<TranslationJobDto>> CreateJobAsync(CreateTranslationJobDto job)
         {
-            Guard.IsAssignableToType<CreateTranslationJobDto>(job);
-
-            var jobObj = _mapper.Map<TranslationJob>(job);
-            _context.TranslationJobs.Add(jobObj);
-
-            bool success = await _context.SaveChangesAsync() > 0;
-
-            if (!success)
-            {
-                return BadRequest("Failed to create job.");
-            }
-
-
-            _notificationClient.Notify(jobObj.Id);
-
-            return _mapper.Map<TranslationJobDto>(jobObj);
+            return await CreateJob(job);
         }
 
         [HttpPost]
-        public ActionResult<TranslationJobDto> CreateJobWithFile(IFormFile file, string customer)
+        public async Task<ActionResult<TranslationJobDto>> CreateJobWithFile(IFormFile file, string customer)
         {
             if (file == null || file.Length == 0)
             {
-                return BadRequest("File is required.");
+                return BadRequest("No file selected.");
+            }
+
+            if (file.Length > 10485760) // 10 MB
+            {
+                return BadRequest("File size exceeds the limit.");
             }
 
             var content = _translationFileReader.GetContnet(file);
@@ -86,30 +82,25 @@ namespace TranslationManagement.Api.Controllers
                 OriginalContent = content.Content
             };
 
-            return CreatedAtAction(nameof(CreateJobAsync), newJob);
+            return await CreateJob(newJob);
         }
 
         [HttpPut("{jobId}/{translatorId}")]
         public async Task<IActionResult> UpdateJobStatus(Guid jobId, Guid translatorId, string newStatus = "")
         {
-            Guard.IsAssignableToType<Guid>(jobId);
-            Guard.IsAssignableToType<Guid>(translatorId);
-            Guard.IsAssignableToType<JobStatus>(newStatus);
+            Enum.TryParse(newStatus, out JobStatus status);
+
+            Guard.IsAssignableToType(jobId, typeof(Guid));
+            Guard.IsAssignableToType(translatorId, typeof(Guid));
+            Guard.IsAssignableToType(status, typeof(JobStatus));
 
             _logger.LogInformation($"Job status update request received: {newStatus} for job {jobId} by translator {translatorId}");
 
             var job = _context.TranslationJobs.FirstOrDefault(j => j.Id == jobId && j.TranslatorId == translatorId);
 
-            if (job == null)
+            if (Math.Abs((int)status - (int)job.Status) != 1)
             {
-                return NotFound("Translator not found.");
-            }
-
-            Enum.TryParse(newStatus, out JobStatus status);
-
-            if ((int)status >= (int)job.Status)
-            {
-                return BadRequest("Translator status updated successfully.");
+                return BadRequest("isInvalid Status value");
             }
 
             job.Status = status;
@@ -130,9 +121,8 @@ namespace TranslationManagement.Api.Controllers
         [HttpPut("{jobId}")]
         public async Task<IActionResult> UpdateJobTranslator(Guid jobId, Guid translatorId)
         {
-
-            Guard.IsAssignableToType<Guid>(jobId);
-            Guard.IsAssignableToType<Guid>(translatorId);
+            Guard.IsAssignableToType(jobId, typeof(Guid));
+            Guard.IsAssignableToType(translatorId, typeof(Guid));
 
             _logger.LogInformation($"Set translator {translatorId} for job {jobId}");
 
@@ -161,6 +151,26 @@ namespace TranslationManagement.Api.Controllers
             }
 
             return Ok("Job status updated.");
+        }
+
+        async Task<ActionResult<TranslationJobDto>> CreateJob(CreateTranslationJobDto job)
+        {
+            Guard.IsAssignableToType(job, typeof(CreateTranslationJobDto));
+
+            var jobObj = _mapper.Map<TranslationJob>(job);
+
+            _context.TranslationJobs.Add(jobObj);
+
+            bool success = await _context.SaveChangesAsync() > 0;
+
+            if (!success)
+            {
+                return StatusCode(500, new { Message = "Insert failed due to an error" });
+            }
+
+            _notificationClient.Notify(jobObj.Id);
+
+            return Ok(_mapper.Map<TranslationJobDto>(jobObj));
         }
     }
 }

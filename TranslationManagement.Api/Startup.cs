@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using TranslationManagement.Api.Application;
 using External.ThirdParty.Services;
+using TranslationManagement.Api.Dtos;
 
 namespace TranslationManagement.Api
 {
@@ -26,6 +27,7 @@ namespace TranslationManagement.Api
             services.AddScoped<INotificationService, UnreliableNotificationService>();
             services.AddScoped<INotificationClient, NotificationClient>();
             services.AddScoped<ITranslationFileReaderService, TranslationFileReaderService>();
+            services.AddScoped<ITranslatorManagementRepository, TranslatorManagementRepository>();
             
 
             services.AddControllers();

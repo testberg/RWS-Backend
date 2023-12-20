@@ -1,10 +1,6 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using TranslationManagement.Api.Enums;
 
-namespace TranslationManagement.Api.Dtos.TranslationJobs
+namespace TranslationManagement.Api.Dtos
 {
     public class TranslationJobDto
     {

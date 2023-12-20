@@ -15,7 +15,7 @@ namespace TranslationManagement.Api.Application
             {
                 case ".xml":
                     return new XmlFileParser();
-                case ".json":
+                case ".txt":
                     return new TxtFileParser();
                 default:
                     throw new NotSupportedException($"File type not supported: {fileExtension}");

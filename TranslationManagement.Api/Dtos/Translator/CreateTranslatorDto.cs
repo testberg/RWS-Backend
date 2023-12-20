@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using TranslationManagement.Api.Enums;
 
-namespace TranslationManagement.Api.Dtos.Translator
+namespace TranslationManagement.Api.Dtos
 {
     public class CreateTranslatorDto
     {

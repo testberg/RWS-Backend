@@ -19,7 +19,7 @@ namespace TranslationManagement.Api.Application
 
                 return new FileContent()
                 {
-                    Content = xdoc.Root.Element("Content").Value,
+                    Content = xdoc.Root.Element("Content").Value.Trim(),
                     Customer = xdoc.Root.Element("Customer").Value.Trim()
                 };
             }
