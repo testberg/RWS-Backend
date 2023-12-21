@@ -13,6 +13,7 @@ namespace TranslationManagement.Api.Dtos
         Task<TranslatorDto> GetTranslatorByNameAsync(string name);
         Task<Translator> GetTranslatorByIdAsync(Guid id);
         void CreateTranslatorAsync(Translator translatorDto);
+        public void RemoveTranslator(Translator removeTranslator);
         Task<bool> SaveChangesAsync();
     }
 }

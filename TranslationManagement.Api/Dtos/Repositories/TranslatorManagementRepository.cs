@@ -45,6 +45,11 @@ namespace TranslationManagement.Api.Dtos
             return await _context.Translators
             .FirstOrDefaultAsync(t => t.Id == id);
         }
+
+        public void RemoveTranslator(Translator removeTranslator)
+        {
+            _context.Translators.Remove(removeTranslator);
+        }
         public async Task<bool> SaveChangesAsync()
         {
             return await _context.SaveChangesAsync() > 0;

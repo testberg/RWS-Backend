@@ -104,5 +104,23 @@ namespace TranslationManagement.Api.Controlers
                 return StatusCode(500, $"Internal server error");
             }
         }
+
+        [HttpDelete("{id}")]
+        public async Task<ActionResult> DeleteTranslator(Guid id)
+        {
+            Guard.IsAssignableToType(id, typeof(Guid));
+
+            var translator = await _repo.GetTranslatorByIdAsync(id);
+
+            if (translator == null) return NotFound();
+
+            _repo.RemoveTranslator(translator);
+
+            var result = await _repo.SaveChangesAsync();
+
+            if (!result) return StatusCode(500, new { Message = "Delete failed due to an error" });
+
+            return NoContent();
+        }
     }
 }

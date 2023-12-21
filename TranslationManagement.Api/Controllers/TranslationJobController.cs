@@ -153,6 +153,24 @@ namespace TranslationManagement.Api.Controllers
             return Ok("Job status updated.");
         }
 
+        [HttpDelete("{id}")]
+        public async Task<ActionResult> DeleteJob(Guid id)
+        {
+            Guard.IsAssignableToType(id, typeof(Guid));
+
+            var translator = await _context.TranslationJobs.FindAsync(id);
+
+            if (translator == null) return NotFound();
+
+            _context.TranslationJobs.Remove(translator);
+
+            var result = await _context.SaveChangesAsync() > 0;
+
+            if (!result) return StatusCode(500, new { Message = "Delete failed due to an error" });
+
+            return NoContent();
+        }
+
         async Task<ActionResult<TranslationJobDto>> CreateJob(CreateTranslationJobDto job)
         {
             Guard.IsAssignableToType(job, typeof(CreateTranslationJobDto));
