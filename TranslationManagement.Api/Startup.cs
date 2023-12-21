@@ -8,6 +8,7 @@ using System;
 using TranslationManagement.Api.Application;
 using External.ThirdParty.Services;
 using TranslationManagement.Api.Dtos;
+using Microsoft.Extensions.Hosting;
 
 namespace TranslationManagement.Api
 {
@@ -28,7 +29,7 @@ namespace TranslationManagement.Api
             services.AddScoped<INotificationClient, NotificationClient>();
             services.AddScoped<ITranslationFileReaderService, TranslationFileReaderService>();
             services.AddScoped<ITranslatorManagementRepository, TranslatorManagementRepository>();
-            
+
 
             services.AddControllers();
             services.AddSwaggerGen(c =>
@@ -39,11 +40,22 @@ namespace TranslationManagement.Api
             services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlite("Data Source=TranslationAppDatabase.db"));
 
-
+            services.AddCors(options =>
+                    {
+                        options.AddPolicy("AllowSpecificOrigin",
+                            builder => builder.WithOrigins("http://localhost:3000")
+                                               .AllowAnyHeader()
+                                               .AllowAnyMethod());
+                    });
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
+            // on development only
+            if (env.IsDevelopment())
+            {
+                app.UseCors("AllowSpecificOrigin");
+            }
             app.UseSwagger();
             app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "TranslationManagement.Api v1"));
 
