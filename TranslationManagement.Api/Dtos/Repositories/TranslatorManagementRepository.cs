@@ -48,7 +48,8 @@ namespace TranslationManagement.Api.Dtos
 
         public void RemoveTranslator(Translator removeTranslator)
         {
-            _context.Translators.Remove(removeTranslator);
+            removeTranslator.Status = Enums.TranslatorStatus.Deleted;
+            _context.Translators.Update(removeTranslator);
         }
         public async Task<bool> SaveChangesAsync()
         {

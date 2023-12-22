@@ -158,11 +158,11 @@ namespace TranslationManagement.Api.Controllers
         {
             Guard.IsAssignableToType(id, typeof(Guid));
 
-            var translator = await _context.TranslationJobs.FindAsync(id);
+            var job = await _context.TranslationJobs.FindAsync(id);
 
-            if (translator == null) return NotFound();
+            if (job == null) return NotFound();
 
-            _context.TranslationJobs.Remove(translator);
+            _context.TranslationJobs.Remove(job);
 
             var result = await _context.SaveChangesAsync() > 0;
 
