@@ -8,7 +8,7 @@ namespace TranslationManagement.Api.Dtos
         [Required]
         public string Name { get; set; }
         [Required]
-        public string Status = TranslatorStatus.Applicant.ToString();
+        public string Status { get; set; }
         [Required]
         public double HourlyRate { get; set; }
         [Required]
