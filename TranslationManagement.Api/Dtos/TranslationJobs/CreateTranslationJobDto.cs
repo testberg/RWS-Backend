@@ -9,6 +9,7 @@ namespace TranslationManagement.Api.Dtos
     public class CreateTranslationJobDto
     {
         private const double PRICE_PER_CHARACHTER = 0.01;
+        private string _customer;
         private string _originalContent;
 
         public CreateTranslationJobDto()
@@ -17,8 +18,19 @@ namespace TranslationManagement.Api.Dtos
             TranslatedContent = "";
         }
 
-        [Required]
-        public string CustomerName { get; set; }
+        [Required(ErrorMessage = "CustomerName cannot be empty.")]
+        public string CustomerName
+        {
+            get { return _customer; }
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    throw new ArgumentException("CustomerName cannot be empty or whitespace.");
+                }
+                _customer = value;
+            }
+        }
 
         [Required(ErrorMessage = "OriginalContent cannot be empty.")]
         public string OriginalContent

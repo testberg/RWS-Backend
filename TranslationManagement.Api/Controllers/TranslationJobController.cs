@@ -171,7 +171,7 @@ namespace TranslationManagement.Api.Controllers
             }
 
             job.TranslatedContent = updateTranslationJobDto.TranslatedContent;
-            
+
             try
             {
                 var result = await _context.SaveChangesAsync() > 0;
@@ -205,8 +205,6 @@ namespace TranslationManagement.Api.Controllers
 
         async Task<ActionResult<TranslationJobDto>> CreateJob(CreateTranslationJobDto job)
         {
-            Guard.IsAssignableToType(job, typeof(CreateTranslationJobDto));
-
             var jobObj = _mapper.Map<TranslationJob>(job);
 
             _context.TranslationJobs.Add(jobObj);
