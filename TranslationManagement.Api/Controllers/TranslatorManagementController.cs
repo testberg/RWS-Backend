@@ -75,7 +75,7 @@ namespace TranslationManagement.Api.Controlers
             }
         }
 
-        [HttpPut("{id}")]
+        [HttpPatch("{id}")]
         public async Task<ActionResult> UpdateTranslatorStatus(Guid id, string newStatus)
         {
             Guard.IsAssignableToType<Guid>(id);
