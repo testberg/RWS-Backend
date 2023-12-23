@@ -85,7 +85,7 @@ namespace TranslationManagement.Api.Controllers
             return await CreateJob(newJob);
         }
 
-        [HttpPut("{jobId}/{translatorId}")]
+        [HttpPatch("{jobId}/{translatorId}")]
         public async Task<IActionResult> UpdateJobStatus(Guid jobId, Guid translatorId, string newStatus = "")
         {
             Enum.TryParse(newStatus, out JobStatus status);
@@ -100,7 +100,7 @@ namespace TranslationManagement.Api.Controllers
 
             if (Math.Abs((int)status - (int)job.Status) != 1)
             {
-                return BadRequest("isInvalid Status value");
+                return BadRequest("Invalid Status value");
             }
 
             job.Status = status;
@@ -114,11 +114,11 @@ namespace TranslationManagement.Api.Controllers
                 return StatusCode(500, $"Internal server error");
             }
 
-            return Ok("Job status updated.");
+            return Ok("Job's status updated.");
         }
 
 
-        [HttpPut("{jobId}")]
+        [HttpPatch("{jobId}")]
         public async Task<IActionResult> UpdateJobTranslator(Guid jobId, Guid translatorId)
         {
             Guard.IsAssignableToType(jobId, typeof(Guid));
@@ -140,6 +140,8 @@ namespace TranslationManagement.Api.Controllers
                 return NotFound("Translator not found.");
             }
 
+            job.TranslatorId = translatorId;
+
             try
             {
                 var result = await _context.SaveChangesAsync() > 0;
@@ -150,7 +152,37 @@ namespace TranslationManagement.Api.Controllers
                 return StatusCode(500, $"Internal server error");
             }
 
-            return Ok("Job status updated.");
+            return Ok("Job's translator updated.");
+        }
+
+        [HttpPut("{jobId}")]
+        public async Task<IActionResult> UpdateJob(Guid jobId, UpdateTranslationJobDto updateTranslationJobDto)
+        {
+            Guard.IsAssignableToType(jobId, typeof(Guid));
+            Guard.IsNotNullOrEmpty(updateTranslationJobDto.TranslatedContent);
+
+            _logger.LogInformation($"Update job {jobId}");
+
+            var job = _context.TranslationJobs.FirstOrDefault(j => j.Id == jobId);
+
+            if (job == null)
+            {
+                return NotFound("Translator not found.");
+            }
+
+            job.TranslatedContent = updateTranslationJobDto.TranslatedContent;
+            
+            try
+            {
+                var result = await _context.SaveChangesAsync() > 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Internal server error: {ex.Message}");
+                return StatusCode(500, "Internal server error");
+            }
+
+            return Ok("Job updated.");
         }
 
         [HttpDelete("{id}")]
