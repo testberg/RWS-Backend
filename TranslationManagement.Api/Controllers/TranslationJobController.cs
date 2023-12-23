@@ -78,7 +78,7 @@ namespace TranslationManagement.Api.Controllers
 
             var newJob = new CreateTranslationJobDto()
             {
-                CustomerName = customer != null ? customer : content.Customer,
+                CustomerName = customer ?? content.Customer,
                 OriginalContent = content.Content
             };
 
